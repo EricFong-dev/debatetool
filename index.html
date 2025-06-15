@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Real-time debate platform" />
+    <title>Debate Tool</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script defer src="/__/firebase/11.9.1/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/11.9.1/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/11.9.1/firebase-database-compat.js"></script>
+    <script defer src="/__/firebase/11.9.1/firebase-analytics-compat.js"></script>
+    <script defer src="/__/firebase/init.js?useEmulator=false"></script>
+
+    <!-- Custom Styles -->
+    <style>
+      :root {
+        --primary-color: #2c3e50;
+        --secondary-color: #3498db;
+        --accent-color: #e74c3c;
+        --success-color: #2ecc71;
+        --warning-color: #f39c12;
+        --background-color: #f5f6fa;
+        --text-color: #2c3e50;
+        --border-radius: 8px;
+        --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: var(--background-color);
+        color: var(--text-color);
+        line-height: 1.6;
+      }
+
+      .app {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+
+      .join-form {
+        max-width: 500px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+      }
+
+      input[type="text"],
+      select {
+        width: 100%;
+        padding: 0.8rem;
+        border: 1px solid #ddd;
+        border-radius: var(--border-radius);
+        font-size: 1rem;
+      }
+
+      button {
+        background-color: var(--secondary-color);
+        color: white;
+        border: none;
+        padding: 0.8rem 1.5rem;
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        font-size: 1rem;
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover {
+        background-color: #2980b9;
+      }
+
+      button:disabled {
+        background-color: #bdc3c7;
+        cursor: not-allowed;
+      }
+
+      .debate-container {
+        display: none;
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+
+      .debate-header {
+        text-align: center;
+        margin-bottom: 2rem;
+      }
+
+      .debate-topic {
+        font-size: 1.5rem;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+      }
+
+      .timer {
+        font-size: 2rem;
+        font-weight: bold;
+        text-align: center;
+        margin: 1rem 0;
+      }
+
+      .current-challenger {
+        text-align: center;
+        padding: 1rem;
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+      }
+
+      .moderator-controls {
+        display: none;
+        background: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+      }
+
+      .spotlight-controls {
+        display: none;
+        background: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+      }
+
+      .challenger-controls {
+        display: none;
+        background: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+      }
+
+      .challenger-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+      }
+
+      .challenger-circle {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background-color: var(--success-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        text-align: center;
+        padding: 10px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+
+      .challenger-circle.voted {
+        background-color: var(--accent-color);
+      }
+
+      .challenger-circle.current {
+        border: 3px solid var(--warning-color);
+      }
+
+      .quit-button {
+        background-color: var(--accent-color);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-left: 16px;
+      }
+
+      .quit-button:hover {
+        background-color: #c0392b;
+      }
+
+      @media (min-width: 768px) {
+        .debate-container {
+          grid-template-columns: 300px 1fr;
+        }
+      }
+
+      .check-votes-btn {
+        background-color: var(--warning-color);
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin: 10px 0;
+      }
+
+      .check-votes-btn:hover {
+        background-color: #d35400;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root">
+      <!-- Join Form -->
+      <form id="joinForm" class="join-form">
+        <h2>Join Debate</h2>
+        <div class="form-group">
+          <label for="nameInput">Name:</label>
+          <input 
+            type="text" 
+            id="nameInput" 
+            placeholder="Enter your name"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="roleSelect">Role:</label>
+          <select id="roleSelect" required>
+            <option value="challenger">Challenger</option>
+            <option value="spotlight">Spotlight Speaker</option>
+            <option value="moderator">Moderator</option>
+          </select>
+        </div>
+        <button type="submit" id="joinButton">Join Now</button>
+      </form>
+
+      <!-- Debate Interface -->
+      <div id="debateContainer" class="debate-container" style="display: none;">
+        <div class="debate-header">
+          <h1>Debate Tool</h1>
+          <div id="debateTopic" class="debate-topic">No topic set</div>
+          <button id="quitButton" class="quit-button">Quit Debate</button>
+        </div>
+
+        <!-- Timer -->
+        <div id="timer" class="timer" style="display: none;">00:00</div>
+
+        <div id="currentChallenger" class="current-challenger">
+          <h3>Current Challenger:</h3>
+          <div id="challengerName">No current challenger</div>
+        </div>
+
+        <!-- Moderator Controls -->
+        <div id="moderatorControls" class="moderator-controls" style="display: none;">
+          <h3>Moderator Controls</h3>
+          <div id="challengerGrid" class="challenger-grid"></div>
+          <div class="form-group">
+            <label for="timerDuration">Timer Duration (minutes):</label>
+            <input 
+              type="number" 
+              id="timerDuration" 
+              min="1" 
+              max="60" 
+              value="5"
+            />
+          </div>
+          <button id="startTimer">Start Timer</button>
+          <button id="checkVotes" class="check-votes-btn">Check Votes</button>
+          <button id="resetDebate" class="quit-button">Reset Debate</button>
+        </div>
+
+        <!-- Spotlight Speaker Controls -->
+        <div id="spotlightControls" class="spotlight-controls" style="display: none;">
+          <h3>Spotlight Speaker Controls</h3>
+          <div class="form-group">
+            <label for="topicInput">Discussion Topic:</label>
+            <input 
+              type="text" 
+              id="topicInput" 
+              placeholder="Enter discussion topic"
+            />
+          </div>
+          <button id="setTopic">Set Topic</button>
+        </div>
+
+        <!-- Challenger Controls -->
+        <div id="challengerControls" class="challenger-controls" style="display: none;">
+          <h3>Challenger Controls</h3>
+          <button id="challengeNow" class="challenge-btn">Challenge Now</button>
+          <div id="votingControls" style="display: none;">
+            <button id="voteForChange">Vote for Change</button>
+            <button id="cancelRequest">Cancel Request</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      // Import Firebase modules
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+      import { getDatabase, ref, set, onValue, push, remove, onDisconnect, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+      import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+      // Firebase configuration
+      const firebaseConfig = {
+        apiKey: "YOURAPIKEY",
+        authDomain: "YOURDOMAIN.firebaseapp.com",
+        databaseURL: "YOURDATABSEURL.firebasedatabase.app",
+        projectId: "YOURPROJECTNAME",
+        storageBucket: "YOURSTORAGEBUCKET",
+        messagingSenderId: "YOURMSID",
+        appId: "YOURAPPID",
+        measurementId: "YOURMEASUREMENTID"
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app);
+      const auth = getAuth(app);
+
+      // DOM Elements
+      const joinForm = document.getElementById('joinForm');
+      const debateContainer = document.getElementById('debateContainer');
+      const nameInput = document.getElementById('nameInput');
+      const roleSelect = document.getElementById('roleSelect');
+      const joinButton = document.getElementById('joinButton');
+      const debateTopic = document.getElementById('debateTopic');
+      const timer = document.getElementById('timer');
+      const currentChallenger = document.getElementById('currentChallenger');
+      const challengerName = document.getElementById('challengerName');
+      const moderatorControls = document.getElementById('moderatorControls');
+      const spotlightControls = document.getElementById('spotlightControls');
+      const challengerControls = document.getElementById('challengerControls');
+      const topicInput = document.getElementById('topicInput');
+      const timerDuration = document.getElementById('timerDuration');
+      const startTimer = document.getElementById('startTimer');
+      const resetDebate = document.getElementById('resetDebate');
+      const challengeNow = document.getElementById('challengeNow');
+      const votingControls = document.getElementById('votingControls');
+      const voteForChange = document.getElementById('voteForChange');
+      const cancelRequest = document.getElementById('cancelRequest');
+      const quitButton = document.getElementById('quitButton');
+      const challengerGrid = document.getElementById('challengerGrid');
+
+      // Session management
+      const sessionId = crypto.randomUUID();
+      let currentUser = null;
+      let userRole = null;
+      let timerInterval = null;
+
+      // Handle form submission
+      joinForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = nameInput.value.trim();
+        const role = roleSelect.value;
+
+        if (!name) {
+          alert('Please enter your name');
+          return;
+        }
+
+        try {
+          // Sign in anonymously
+          const userCredential = await signInAnonymously(auth);
+          currentUser = userCredential.user;
+          userRole = role;
+
+          // Store user data with session ID
+          const userRef = ref(db, `debate/users/${currentUser.uid}_${sessionId}`);
+          await set(userRef, {
+            name,
+            role,
+            uid: currentUser.uid,
+            sessionId,
+            timestamp: serverTimestamp()
+          });
+
+          // Store role-specific data
+          if (role === 'moderator') {
+            await set(ref(db, `debate/moderator/${currentUser.uid}_${sessionId}`), {
+              name,
+              uid: currentUser.uid,
+              sessionId,
+              timestamp: serverTimestamp()
+            });
+          } else if (role === 'spotlight') {
+            await set(ref(db, `debate/spotlight/${currentUser.uid}_${sessionId}`), {
+              name,
+              uid: currentUser.uid,
+              sessionId,
+              timestamp: serverTimestamp()
+            });
+          } else if (role === 'challenger') {
+            await set(ref(db, `debate/challengers/${currentUser.uid}_${sessionId}`), {
+              name,
+              uid: currentUser.uid,
+              sessionId,
+              timestamp: serverTimestamp()
+            });
+          }
+
+          // Set up presence tracking
+          const presenceRef = ref(db, `debate/presence/${currentUser.uid}_${sessionId}`);
+          await set(presenceRef, true);
+          onDisconnect(presenceRef).remove();
+
+          // Show debate interface
+          joinForm.style.display = 'none';
+          debateContainer.style.display = 'block';
+
+          // Show role-specific controls
+          if (role === 'moderator') {
+            moderatorControls.style.display = 'block';
+            setupModeratorView();
+          } else if (role === 'spotlight') {
+            spotlightControls.style.display = 'block';
+            setupSpotlightView();
+          } else if (role === 'challenger') {
+            challengerControls.style.display = 'block';
+            setupChallengerView();
+          }
+        } catch (error) {
+          console.error('Error joining debate:', error);
+          alert('Error joining debate. Please try again.');
+        }
+      });
+
+      // Check moderator availability
+      async function checkModeratorAvailability() {
+        const moderatorRef = ref(db, 'debate/moderator');
+        onValue(moderatorRef, (snapshot) => {
+          const moderators = snapshot.val() || {};
+          const hasActiveModerator = Object.values(moderators).some(mod => mod.timestamp);
+          
+          // Update role select options
+          const moderatorOption = roleSelect.querySelector('option[value="moderator"]');
+          if (moderatorOption) {
+            if (hasActiveModerator) {
+              moderatorOption.disabled = true;
+              moderatorOption.textContent = 'Moderator (Already exists)';
+            } else {
+              moderatorOption.disabled = false;
+              moderatorOption.textContent = 'Moderator';
+            }
+          }
+        });
+      }
+
+      // Handle user quit
+      async function handleUserQuit() {
+        if (!currentUser) return;
+
+        try {
+          // Remove user from active users list
+          await remove(ref(db, `debate/users/${currentUser.uid}_${sessionId}`));
+
+          // Remove role-specific data
+          if (userRole === 'moderator') {
+            await remove(ref(db, `debate/moderator/${currentUser.uid}_${sessionId}`));
+          } else if (userRole === 'spotlight') {
+            await remove(ref(db, `debate/spotlight/${currentUser.uid}_${sessionId}`));
+          } else if (userRole === 'challenger') {
+            await remove(ref(db, `debate/challengers/${currentUser.uid}_${sessionId}`));
+          }
+
+          // Remove presence
+          await remove(ref(db, `debate/presence/${currentUser.uid}_${sessionId}`));
+
+          // Return to join form
+          debateContainer.style.display = 'none';
+          joinForm.style.display = 'block';
+          currentUser = null;
+          userRole = null;
+        } catch (error) {
+          console.error('Error quitting debate:', error);
+          alert('Error quitting debate. Please try again.');
+        }
+      }
+
+      // Setup moderator view
+      function setupModeratorView() {
+        // Listen for challenger updates and create circles
+        onValue(ref(db, 'debate/challengers'), (snapshot) => {
+          const challengers = snapshot.val() || {};
+          challengerGrid.innerHTML = '';
+
+          Object.entries(challengers).forEach(([key, challenger]) => {
+            const circle = document.createElement('div');
+            circle.className = 'challenger-circle';
+            circle.dataset.uid = challenger.uid;
+            circle.dataset.session = challenger.sessionId;
+            circle.textContent = challenger.name;
+            
+            // Add click handler for selecting challenger (moderator only)
+            circle.addEventListener('click', async () => {
+              try {
+                await set(ref(db, 'debate/currentChallenger'), {
+                  name: challenger.name,
+                  uid: challenger.uid,
+                  sessionId: challenger.sessionId
+                });
+              } catch (error) {
+                console.error('Error selecting challenger:', error);
+              }
+            });
+
+            challengerGrid.appendChild(circle);
+          });
+
+          // Update voting status colors for each circle
+          onValue(ref(db, 'debate/votes'), (voteSnap) => {
+            const votes = voteSnap.val() || {};
+            document.querySelectorAll('.challenger-circle').forEach(circle => {
+              const voteKey = `${circle.dataset.uid}_${circle.dataset.session}`;
+              // Only update the specific circle's voting status
+              if (votes[voteKey] === true) {
+                circle.classList.add('voted');
+              } else {
+                circle.classList.remove('voted');
+              }
+            });
+          });
+        });
+
+        // Handle timer start
+        startTimer.addEventListener('click', async () => {
+          const duration = parseInt(timerDuration.value) || 5;
+          
+          try {
+            await set(ref(db, 'debate/timer'), {
+              start: true,
+              duration: duration,
+              timestamp: Date.now()
+            });
+          } catch (error) {
+            console.error('Error starting timer:', error);
+          }
+        });
+
+        // Handle check votes button
+        document.getElementById('checkVotes').addEventListener('click', async () => {
+          try {
+            // Get current votes
+            const votesSnapshot = await get(ref(db, 'debate/votes'));
+            const votes = votesSnapshot.val() || {};
+            
+            // Get all challengers
+            const challengersSnapshot = await get(ref(db, 'debate/challengers'));
+            const challengers = challengersSnapshot.val() || {};
+            
+            // Count votes for change
+            const voteCount = Object.values(votes).filter(vote => vote === true).length;
+            const totalChallengers = Object.keys(challengers).length;
+            
+            // Check if majority has voted for change
+            if (voteCount > totalChallengers / 2) {
+              // Remove current challenger
+              await set(ref(db, 'debate/currentChallenger'), null);
+              
+              // Reset all votes
+              await set(ref(db, 'debate/votes'), null);
+              
+              alert('Majority vote reached! Current challenger has been removed.');
+            } else {
+              alert(`Not enough votes for change. Current votes: ${voteCount}/${totalChallengers}`);
+            }
+          } catch (error) {
+            console.error('Error checking votes:', error);
+            alert('Error checking votes. Please try again.');
+          }
+        });
+
+        // Handle debate reset
+        resetDebate.addEventListener('click', async () => {
+          if (confirm('Are you sure you want to reset the debate? This will clear all data.')) {
+            try {
+              await set(ref(db, 'debate'), null);
+              window.location.reload();
+            } catch (error) {
+              console.error('Error resetting debate:', error);
+            }
+          }
+        });
+      }
+
+      // Setup spotlight speaker view
+      function setupSpotlightView() {
+        // Handle topic setting
+        document.getElementById('setTopic').addEventListener('click', async () => {
+          const topic = topicInput.value.trim();
+          
+          if (!topic) {
+            alert('Please enter a discussion topic');
+            return;
+          }
+
+          try {
+            await set(ref(db, 'debate/topic'), topic);
+          } catch (error) {
+            console.error('Error setting topic:', error);
+          }
+        });
+      }
+
+      // Setup challenger view
+      function setupChallengerView() {
+        // Handle challenge now button
+        challengeNow.addEventListener('click', async () => {
+          if (!currentUser) return;
+          
+          try {
+            await set(ref(db, 'debate/currentChallenger'), {
+              name: nameInput.value.trim(),
+              uid: currentUser.uid,
+              sessionId: sessionId
+            });
+          } catch (error) {
+            console.error('Error becoming challenger:', error);
+          }
+        });
+
+        // Handle vote for change
+        voteForChange.addEventListener('click', async () => {
+          if (!currentUser) return;
+          
+          try {
+            const voteKey = `${currentUser.uid}_${sessionId}`;
+            // Only update the vote status, no automatic challenger switching
+            await set(ref(db, `debate/votes/${voteKey}`), true);
+          } catch (error) {
+            console.error('Error voting for change:', error);
+          }
+        });
+
+        // Handle cancel request
+        cancelRequest.addEventListener('click', async () => {
+          if (!currentUser) return;
+          
+          try {
+            const voteKey = `${currentUser.uid}_${sessionId}`;
+            // Only update the vote status
+            await set(ref(db, `debate/votes/${voteKey}`), false);
+          } catch (error) {
+            console.error('Error canceling vote:', error);
+          }
+        });
+
+        // Listen for current challenger updates to show/hide appropriate controls
+        onValue(ref(db, 'debate/currentChallenger'), (snapshot) => {
+          const curr = snapshot.val();
+          if (curr) {
+            // Hide Challenge Now button if there's a current challenger
+            challengeNow.style.display = 'none';
+            // Show voting controls only if current user is not the current challenger
+            votingControls.style.display = 
+              (curr.uid !== currentUser.uid || curr.sessionId !== sessionId) ? 'block' : 'none';
+          } else {
+            // Show Challenge Now button if there's no current challenger
+            challengeNow.style.display = 'block';
+            // Hide voting controls when there's no current challenger
+            votingControls.style.display = 'none';
+          }
+        });
+      }
+
+      // Handle timer functionality
+      function setupTimer() {
+        onValue(ref(db, 'debate/timer'), (snapshot) => {
+          const timerData = snapshot.val();
+          if (timerData && timerData.start) {
+            timer.style.display = 'block';
+            
+            // Clear any existing timer
+            if (timerInterval) {
+              clearInterval(timerInterval);
+            }
+            
+            // Calculate time left
+            const startTime = timerData.timestamp;
+            const duration = timerData.duration * 60 * 1000; // Convert to milliseconds
+            const endTime = startTime + duration;
+            
+            function updateTimer() {
+              const now = Date.now();
+              const timeLeft = Math.max(0, endTime - now);
+              
+              if (timeLeft === 0) {
+                clearInterval(timerInterval);
+                timer.textContent = "Time's up!";
+                return;
+              }
+              
+              const minutes = Math.floor(timeLeft / 60000);
+              const seconds = Math.floor((timeLeft % 60000) / 1000);
+              timer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+            
+            updateTimer();
+            timerInterval = setInterval(updateTimer, 1000);
+          } else {
+            timer.style.display = 'none';
+            if (timerInterval) {
+              clearInterval(timerInterval);
+            }
+          }
+        });
+      }
+
+      // Listen for topic updates
+      onValue(ref(db, 'debate/topic'), (snapshot) => {
+        const topic = snapshot.val();
+        debateTopic.textContent = topic || 'No topic set';
+      });
+
+      // Listen for current challenger updates
+      onValue(ref(db, 'debate/currentChallenger'), (snapshot) => {
+        const challenger = snapshot.val();
+        challengerName.textContent = challenger ? challenger.name : 'No current challenger';
+      });
+
+      // Initialize
+      checkModeratorAvailability();
+      setupTimer();
+
+      // Handle quit button
+      quitButton.addEventListener('click', handleUserQuit);
+    </script>
+  </body>
+</html>
